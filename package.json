@@ -1,0 +1,16 @@
+{
+  "name": "lanpai-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "Billing bridge and download page for Lanpai Overlay",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "auth-kit": "github:Jeffrey0117/auth-kit",
+    "jwks-verify-kit": "github:Jeffrey0117/jwks-verify-kit#v0.4.5",
+    "ratelimit-kit": "github:Jeffrey0117/ratelimit-kit"
+  }
+}
