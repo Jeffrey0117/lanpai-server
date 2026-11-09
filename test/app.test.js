@@ -8,8 +8,9 @@ const SESSION_SECRET = 'test-session-secret-long-enough'
 const PAYER = 'payer@example.com'
 
 function fakeLmu(token) {
-  if (token === 'lmu-good') return { sub: 'usr_1', email: PAYER }
-  if (token === 'lmu-no-email') return { sub: 'usr_2' }
+  if (token === 'lmu-good') return { sub: 'usr_1', email: PAYER, emailVerified: true }
+  if (token === 'lmu-unverified') return { sub: 'usr_3', email: PAYER, emailVerified: false }
+  if (token === 'lmu-no-email') return { sub: 'usr_2', emailVerified: true }
   return null
 }
 
@@ -58,9 +59,45 @@ test('health reports ok and jwks state', async () => {
   assert.deepStrictEqual(await res.json(), { ok: true, jwks: { keys: 1 } })
 })
 
-test('exchange turns a LetMeUse token into a long session', async () => {
+function redeem(code) {
+  return fetch(`${base}/api/desktop/redeem`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code })
+  })
+}
+
+async function exchangeCode() {
   const res = await call('/api/desktop/exchange', { method: 'POST', token: 'lmu-good' })
   assert.strictEqual(res.status, 200)
+  return (await res.json()).code
+}
+
+test('an unverified email cannot get a billing session', async () => {
+  assert.strictEqual((await call('/api/desktop/exchange', { method: 'POST', token: 'lmu-unverified' })).status, 403)
+})
+
+test('the exchange response carries no session, only a code', async () => {
+  const res = await call('/api/desktop/exchange', { method: 'POST', token: 'lmu-good' })
+  const body = await res.json()
+  assert.deepStrictEqual(Object.keys(body), ['code'])
+  assert.strictEqual(sessions.verifyJWT(body.code), null)
+})
+
+test('a login code works exactly once', async () => {
+  const code = await exchangeCode()
+  assert.strictEqual((await redeem(code)).status, 200)
+  assert.strictEqual((await redeem(code)).status, 401)
+})
+
+test('junk and missing codes are rejected', async () => {
+  assert.strictEqual((await redeem('nope')).status, 401)
+  assert.strictEqual((await redeem(undefined)).status, 401)
+  assert.strictEqual((await redeem({ a: 1 })).status, 401)
+})
+
+test('redeeming turns a code into a long session', async () => {
+  const res = await redeem(await exchangeCode())
   const { token } = await res.json()
   const claims = sessions.verifyJWT(token)
   assert.strictEqual(claims.email, PAYER)
