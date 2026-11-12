@@ -206,3 +206,13 @@ test('unknown routes return 404 json', async () => {
   const res = await call('/api/nope')
   assert.strictEqual(res.status, 404)
 })
+
+// PayGate 的訂閱查詢要帶 token 才回答 (不然任何人都能查任何 email 有沒有付費)
+test('the subscription check carries the PayGate token', async () => {
+  paygateCalls = []
+  paygateHandler = () => jsonResponse(200, { active: false })
+  await call('/api/license', { token: sessionFor() })
+  const check = paygateCalls.find((c) => c.url.includes('/api/subscription/check'))
+  assert.ok(check, 'license should ask PayGate')
+  assert.strictEqual(((check.init || {}).headers || {}).Authorization, 'Bearer pg-token')
+})

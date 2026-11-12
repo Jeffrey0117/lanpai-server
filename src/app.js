@@ -86,7 +86,10 @@ function createApp(options) {
 
   async function readSubscription(email) {
     const query = new URLSearchParams({ email, product: PRODUCT })
-    const res = await paygate(`/api/subscription/check?${query}`)
+    // PayGate 的訂閱查詢要帶 token 才回答
+    const res = await paygate(`/api/subscription/check?${query}`, {
+      headers: { Authorization: `Bearer ${paygateToken}` }
+    })
     if (!res.ok) throw new Error(`PayGate check returned ${res.status}`)
     return res.json()
   }
